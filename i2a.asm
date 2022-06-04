@@ -10,27 +10,33 @@ _main:
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
     add     fp, sp, #96             ; define stack frame
-;
+
     adrp    x19, s_bitcount@page    ; set x19 to string pointed to by s_bitcount
+    ldr     x0, =value              ; load the number
+    bl      bitCount                ; count set bits in number
+    cmp     x0, #1                  ; only one bit set?
+    b.eq    only_one                ; yessir
+    mov     x20, x0                 ; save count for later
+
     mov     x1, x19                 ; copy string address
-    mov     x2, #25                 ; set x2 to the length of the s_bitcount string
+    mov     x2, #10                 ; set x2 to the length of the current string
     bl      print                   ; print the string to the screen
 
-    ldr     x0, =value              ; set the number that we want to count the number of set bits from
-    bl      printUInt               ; print that number in decimal
+    mov     x0, x20                 ; retrive bit count
+    bl      printUInt
 
-    add     x1, x19, #25            ; point to next string section
-    mov     x2, #12                 ; set x2 to the length of the s_bc string
-    bl      print                   ; print the s_bc string to the screen
+    add     x1, x19, #9             ; point to next string section
+    mov     x2, #13                 ; set x2 to the length of the string
+    bl      print                   ; print the string to the screen
 
-    ldr     x0, =value              ; get the sample
-    bl      bitCount                ; count the number of set bits in X0
-    bl      printUInt               ; print number of bits
+    ldr     x0, =value              ; load the sample
+    bl      printUInt               ; print number
 
-    add     x1, x19, #36            ; point to next string section
-    mov     x2, #13                 ; string length
-    bl      print
+    add     x1, x19, #22            ; point to next string section
+    mov     x2, #2                  ; set x2 to the length of the string
+    bl      print                   ; print the string to the screen
 
+end_program:
     ldp     x19, x20, [sp], #16     ; restore
     ldp     x21, x22, [sp], #16     ; restore
     ldp     x23, x24, [sp], #16     ; restore
@@ -41,6 +47,13 @@ _main:
     mov X0, xzr                     ; set the exit code to 0
     mov x16,#1                      ; return control to supervisor
     svc #0xffff                     ; call supervisor
+
+only_one:
+    add     x1, x19, #24            ; point to next string section
+    mov     x2, #29                 ; size
+    bl      print
+    b       end_program
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;Will count the number of set bits in X0
@@ -98,7 +111,7 @@ printUInt:
     mov     x21, x0                 ; move input parameter to work register
     mov     x24, sp                 ; copy stack pointer for writing string
 
-    cmp     x21, xzr                ; if x21 is zero then the division algorith will not work
+    cmp     x0, xzr                ; if x21 is zero then the division algorith will not work
     b.eq    printUInt_Zero          ; we set the value on the stack to 0
 
 printUInt_Count:
@@ -120,7 +133,7 @@ printUInt_print_loop:
     cmp     x20, #1                 ; done?
     b.eq    printUInt_exit          ; all done
     sub     x20, x20, #1            ; decrement index
-    add     x1, sp, x20             ; digit index
+    add     x1, sp, x20             ; digit index + sp = address
     mov     x2, #1                  ; string length
     bl      print                   ; digit to STDOUT
     b       printUInt_print_loop    ; once more to the breach
@@ -136,9 +149,9 @@ printUInt_exit:
     ret                             ; return
 
 printUInt_Zero:                     ; this is the exceptional case when x21 is 0 then we need to push this ourselves to the stack
-    mov     w21, #48                ; move "0" to w21
+    mov     w21, #0x030             ; move "0" to w21
+    add     x20, x20, #1            ; increment the digit counter/index (x20)
     strb    w21, [sp, x20]          ; push digit so that it can be printed to the screen
-    mov     x20, #1                 ; length of a single charectar string
     b       printUInt_print
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -146,24 +159,24 @@ printUInt_Zero:                     ; this is the exceptional case when x21 is 0
 ;; X1 is string ptr
 ;; X2 is string length
 print:                              ; print procedure
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    stp     x23, x24, [sp, #-16]!   ; preserve
-    stp     x21, x22, [sp, #-16]!   ; preserve
-    stp     x19, x20, [sp, #-16]!   ; preserve
-    add     fp, sp, #96             ; define frame
+    ; stp     fp, lr, [sp, #-16]!     ; preserve
+    ; stp     x27, x28, [sp, #-16]!   ; preserve
+    ; stp     x25, x26, [sp, #-16]!   ; preserve
+    ; stp     x23, x24, [sp, #-16]!   ; preserve
+    ; stp     x21, x22, [sp, #-16]!   ; preserve
+    ; stp     x19, x20, [sp, #-16]!   ; preserve
+    ; add     fp, sp, #96             ; define frame
 
-    mov     x0, #1                  ; write to stdout
+    mov     x0, #1                  ; write to STDOUT
     mov     x16, #4                 ; system code for write
     svc     #0xffff                 ; supervisor call
 
-    ldp     x19, x20, [sp], #16     ; restore
-    ldp     x21, x22, [sp], #16     ; restore
-    ldp     x23, x24, [sp], #16     ; restore
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
+    ; ldp     x19, x20, [sp], #16     ; restore
+    ; ldp     x21, x22, [sp], #16     ; restore
+    ; ldp     x23, x24, [sp], #16     ; restore
+    ; ldp     x25, x26, [sp], #16     ; restore
+    ; ldp     x27, x28, [sp], #16     ; restore
+    ; ldp     fp, lr, [sp], #16       ; restore
     ret
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -171,7 +184,6 @@ print:                              ; print procedure
 .data
 .align 8
 
-s_bitcount:     .ascii  "How many set bits are in ? There are set bits.\n"
+s_bitcount:     .ascii  "There are bits set in .\nThere is one bit set in one.\n"
 
-value = 0x8888
-
+value = 0x8000
